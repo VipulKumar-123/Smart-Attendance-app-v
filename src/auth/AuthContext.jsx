@@ -6,33 +6,40 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
+
   const [user, setUser] = useState(() => {
+    const local = localStorage.getItem("saauser");
+    // Guard against null, empty string, and the literal "undefined" string
+    if (!local || local === "undefined") {
+      return null;
+    }
     try {
-      const local = localStorage.getItem("saauser");
-
-      if (!local || local === "undefined" || local === "null") {
-        return null;
-      }
-
       return JSON.parse(local);
-    } catch (error) {
-      console.error("Invalid user data in localStorage:", error);
-
+    } catch (e) {
       localStorage.removeItem("saauser");
       return null;
     }
   });
+
   const logout = () => {
     localStorage.removeItem("saatoken");
     localStorage.removeItem("saauser");
+    setUser(null);
     navigate("/");
   };
 
   const authStatus = async () => {
     try {
       const response = await api.get("/auth/me");
-      setUser(response.data.user);
-      localStorage.setItem("saauser", JSON.stringify(response.data.user));
+      // Fallback to null if user object is missing in response
+      const userData = response?.data?.user ?? null;
+      setUser(userData);
+
+      if (userData) {
+        localStorage.setItem("saauser", JSON.stringify(userData));
+      } else {
+        localStorage.removeItem("saauser");
+      }
     } catch (error) {
       localStorage.removeItem("saatoken");
       localStorage.removeItem("saauser");
@@ -42,7 +49,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem("saatoken");
-    if (!token) {
+    if (!token || token === "undefined") {
       return;
     }
     authStatus();
